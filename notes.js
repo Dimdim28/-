@@ -1,5 +1,7 @@
 "use strict";
 
+let array = [];
+
 const fs = require("fs");
 const readline = require("readline");
 
@@ -12,30 +14,17 @@ const content = () => fs.readFileSync("notes.txt", "utf8");
 
 const question = (str) => new Promise((answer) => rl.question(str, answer));
 const add = (data) => {
-  fs.appendFileSync("notes.txt",`${data}`, () => {});
+  fs.appendFileSync("notes.txt", `${data}`, () => {});
 };
-let array = [];
+
 const readArr = () => {
   array = [];
   let lines = content().split("\n");
   for (let line in lines) {
-    array.push(lines[line].split(","));
+      array.push(lines[line].split(","));
   }
   array.pop();
   return array;
-};
-
-const addToObject = () => {
-  let objectArray = [];
-  for (let i = 0; i < array.length; i++) {
-    const notesObj = {
-      Title: array[i][0],
-      Descr: array[i][1],
-      Time: array[i][2],
-    };
-    objectArray.push(notesObj);
-  }
-  return objectArray;
 };
 
 const addToObjectDate = () => {
@@ -51,12 +40,6 @@ const addToObjectDate = () => {
   return objectArray;
 };
 
-/*const a =Number(array[2][2]);
-console.log(a);
-let date = new Date(a);
-console.log(date);
-*/
-
 rl.prompt();
 const commands = {
   help() {
@@ -66,15 +49,15 @@ const commands = {
     readArr();
     console.table(addToObjectDate());
   },
-
   add() {
     Input.title();
   },
-
   delete() {
     Input.deletetitle();
   },
-
+  find() {
+    Input.find();
+  },
   exit() {
     rl.close();
   },
@@ -83,7 +66,7 @@ rl.on("line", (line) => {
   line = line.trim();
   const command = commands[line];
   if (command) command();
-  else console.log("\x1b[31m","Unknown command",'\x1b[0m');
+  else console.log("\x1b[31m", "Unknown command", "\x1b[0m");
   rl.prompt();
 }).on("close", () => {
   console.log("Bye!");
@@ -92,26 +75,25 @@ rl.on("line", (line) => {
 
 const Input = {
   title: async () => {
-    const title = await question("Enter your title: ");
- 
-    for(let i in  readArr()){
-      console.log(i);
-      console.log(array[0][i]);
-      console.dir(array[i]);
-      if(title === array[0][i]){
-       console.log("\x1b[31m","This title is already declared",'\x1b[0m');
-       return Input.title();
-      }
-      else{
-        add(title);
-        add(",");
-        return Input.desc();
+    let k = 0;
+    const name = await question("Enter your title: ");
+    readArr();
+    for (const line of array) {
+      if (line[0] == name.toString()) {
+        k++;
       }
     }
-    
+    if (k != 0) {
+      console.log("\x1b[31m", "already used", "\x1b[0m");
+      Input.title();
+    } else {
+      add(name);
+      add(",");
+      return Input.desc();
+    }
   },
   desc: async () => {
-    const desc = await question( "Enter your description: ");
+    const desc = await question("Enter your description: ");
     add(desc);
     add(",");
     return Input.date();
@@ -122,23 +104,74 @@ const Input = {
     return Input.results();
   },
   results: async () => {
-    console.log("\x1b[32m", "was written",'\x1b[0m');
+    console.log("\x1b[32m", "was written", "\x1b[0m");
     return Input.end();
   },
   deletetitle: async () => {
-    const del = await question( "Enter title which you want to delete: ");
+    const del = await question("Enter title which you want to delete: ");
+    const replace = require('replace-in-file');
+
+
     readArr();
-    for (let i in array) {
-      if (array[i][0] === del) {
-        array[i].splice(0,1)
+    let lineToReplace = '';
+    const lineFound =()=>{
+      for(const line of array){
+        if(line.includes(del)){
+       lineToReplace = line.join(',')+'\n';
+       console.dir(lineToReplace);
+       return lineToReplace;
+        };
+       }
+    }
+    
+    lineFound();
+    const options = {
+      files: 'notes.txt',
+      from: lineToReplace,
+      to: '',
+    };
+
+    try {
+      const results = await replace(options)
+      console.log('Replacement results:', results);
+    }
+    catch (error) {
+      console.error('Error occurred:', error);
+    }
+    readArr();
+    return Input.end();
+  },
+  find: async () => {
+    const findTitle = await question("Enter title which you want to find: ");
+    readArr();
+    for (const line of array) {
+      if (findTitle.toString().trim() == line[0].toString().trim()) {
+        const mess = "\x1b[33m" +
+        "Title: " +
+        "\x1b[0m" +
+        "\n" +
+        line[0] +
+        "\n" +
+        "\n" +
+        "\x1b[33m" +
+        "Description: " +
+        "\x1b[0m" +
+        "\n" +
+        line[1] +
+        "\n" +
+        "\n" +
+        "\x1b[33m" +
+        "Time: " +
+        "\x1b[0m" +
+        "\n" +
+        line[2] +
+        "\n" +
+        "\n" +
+        "\n"
+        console.log(mess);
       }
     }
-    let clearDate = content().split('\n').filter(function(line){ 
-      return line.indexOf(`${del}` ) == -1;
-    }).join('\n');
-    fs.truncateSync( "notes.txt", 0, ()=>{});
-    add(clearDate);
-    return rl.prompt();
+    return Input.end();
   },
   end: async () => {
     rl.prompt();
